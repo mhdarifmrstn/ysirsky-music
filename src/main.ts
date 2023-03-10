@@ -1,36 +1,36 @@
 import { Telegraf, Input, deunionize } from "telegraf";
+import spotifyds from "spotifyds-core";
+import { Audio } from "telegraf/types";
 import getPayload from "./fns/getPayload.js";
 import { Message } from "telegraf/typings/core/types/typegram.js";
-import spotifyds from "spotifyds-core";
+import downloadFile from "./fns/downloadFile.js";
 import "dotenv/config";
-import downloadSong from "./fns/downloadSong.js";
+import changePicture from "./fns/changePicture.js";
+import formatBytes from "./fns/formatBytes.js";
+import modifySong from "./fns/modifySong.js";
+import sendProgress from "./fns/sendProgress.js";
 
 const env = process.env;
 const token = env.BOT_TOKEN;
+// const logChannelId = env.LOG_CHANNEL_ID;
 
 if (!token) {
   throw Error("Please provide BOT_TOKEN");
 }
+// if (!logChannelId) {
+//   throw Error("Please provide LOG_CHANNEL_ID");
+// }
 function editMessageText(message: Message.TextMessage, newText: string) {
   return app.telegram.editMessageText(message.chat.id, message.message_id, undefined, newText);
 }
-function throttle<T extends Function>(func: T, timeout = 1000) {
-  let wait = false;
-
-  return (...args: any) => {
-    if (wait) return;
-    func(...args);
-    wait = true;
-    setTimeout(() => (wait = false), timeout);
+interface TaskManager {
+  [userId: number]: {
+    name: "changetitle" | "changepicture" | "changeartist";
+    audio: Audio;
   };
 }
-const sendProgress = throttle(
-  (r: Message.TextMessage, artist: string, songName: string, downloaded: number, total: number) => {
-    const progressText = `Downloading ${artist} - ${songName}\n` + `${downloaded}/${total}`;
-    return editMessageText(r, progressText);
-  }
-);
 const app = new Telegraf(token);
+const taskManager: TaskManager = {};
 
 app.telegram.setMyCommands([
   { command: "r", description: "download song from title" },
@@ -38,6 +38,7 @@ app.telegram.setMyCommands([
   { command: "changepicture", description: "change song picture" },
   { command: "changeartist", description: "change artist name" },
   { command: "uptime", description: "check bot alive time" },
+  { command: "leave", description: "cancel the current task" },
 ]);
 app.command("r", async (ctx) => {
   try {
@@ -52,9 +53,7 @@ app.command("r", async (ctx) => {
     const download = spotifyds.downloadTrack(ytResult.name, ytResult.youtubeId!, "musics");
 
     download.on("progress", async (chunkLength, downloaded, total) => {
-      try {
-        sendProgress(r, artist[0], result.name, downloaded, total);
-      } catch {}
+      sendProgress(ctx.telegram, ctx.message, chunkLength, downloaded, total, artist[0], result.name);
     });
     download.on("finish", async (filePath) => {
       await editMessageText(r, "Sending file..");
@@ -76,21 +75,87 @@ app.command("r", async (ctx) => {
 app.command("changetitle", async (ctx) => {
   const message = deunionize(ctx.message);
   const newTitle = getPayload(message.text);
+  const userId = message.from.id;
 
   if (!newTitle) {
-    return ctx.reply("Please provide the new title");
+    return ctx.reply("Please provide a new title");
   }
   if (message.reply_to_message && "audio" in message.reply_to_message) {
+    const replyMessage = await ctx.reply("Terminal Running..");
     const audio = message.reply_to_message.audio;
-    const r = await downloadSong(app.telegram, audio);
-    const defaultThumbUrl = "https://i.scdn.co/image/ab67616d00004851ef3eca064b57fe5efc97e597";
+    const thumbFileId = audio.thumb?.file_id;
+    const thumbUrl = thumbFileId && (await ctx.telegram.getFileLink(thumbFileId)).href;
 
-    await app.telegram.sendAudio(ctx.chat.id, Input.fromLocalFile(r.songFilePath), {
+    modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
       performer: audio.performer,
       title: newTitle,
-      thumb: { url: r.thumbUrl?.href || defaultThumbUrl },
+      thumb: thumbUrl ? { url: thumbUrl } : undefined,
       duration: audio.duration,
     });
+  }
+});
+app.command("changepicture", async (ctx) => {
+  const message = deunionize(ctx.message);
+  const userId = message.from.id;
+
+  if (message.reply_to_message && "audio" in message.reply_to_message) {
+    const audio = message.reply_to_message.audio;
+
+    taskManager[userId] = {
+      name: "changepicture",
+      audio,
+    };
+    return ctx.reply("Send me a picture");
+  }
+});
+app.command("changeartist", async (ctx) => {
+  const message = deunionize(ctx.message);
+  const newArtistName = getPayload(message.text);
+  const userId = message.from.id;
+
+  if (!newArtistName) {
+    return ctx.reply("Please provide a new artist name");
+  }
+  if (message.reply_to_message && "audio" in message.reply_to_message) {
+    const replyMessage = await ctx.reply("Terminal Running..");
+    const audio = message.reply_to_message.audio;
+    const thumbFileId = audio.thumb?.file_id;
+    const thumbUrl = thumbFileId && (await ctx.telegram.getFileLink(thumbFileId)).href;
+
+    modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
+      performer: newArtistName,
+      title: audio.title,
+      thumb: thumbUrl ? { url: thumbUrl } : undefined,
+      duration: audio.duration,
+    });
+  }
+});
+app.command("leave", async (ctx) => {
+  const userId = ctx.message.from.id;
+  delete taskManager[userId];
+  return ctx.replyWithSticker("CAACAgUAAxkBAAEMf59kBzfOYBDYlZPZ0ux5HATmYnvligACqQIAAqyPiFXqD9zrFfqzNy4E");
+});
+app.on("photo", async (ctx) => {
+  const userId = ctx.message.from.id;
+  const newThumbFileId = ctx.message.photo[0].file_id;
+  const userTask = taskManager[userId];
+
+  if (userTask) {
+    if (userTask.name === "changepicture") {
+      const replyMessage = await ctx.reply("Terminal Running..");
+      const audio = userTask.audio;
+      const newThumbUrl = (await ctx.telegram.getFileLink(newThumbFileId)).href;
+
+      modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
+        performer: audio.performer,
+        title: audio.title,
+        thumb: { url: newThumbUrl },
+        duration: audio.duration,
+      });
+      delete taskManager[userId];
+    } else {
+      return ctx.reply("Please send me a picture or type /leave to cancel the current task");
+    }
   }
 });
 app.telegram.getMe().then((me) => {
