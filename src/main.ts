@@ -120,7 +120,7 @@ app.command("changeartist", async (ctx) => {
   const userId = message.from.id;
 
   if (!newArtistName) {
-    return ctx.reply("Kirim yang benar\nContoh: /changeartist Sheila On 7");
+    return ctx.reply("Kirim yang benar\nContoh: /changeartist Will Hyde");
   }
   if (message.reply_to_message && "audio" in message.reply_to_message) {
     const replyMessage = await ctx.reply("Nice");
