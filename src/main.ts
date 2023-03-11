@@ -77,24 +77,16 @@ app.command(["r", "download"], async (ctx) => {
 });
 app.command("changetitle", async (ctx) => {
   const message = deunionize(ctx.message);
-  const newTitle = getPayload(message.text);
   const userId = message.from.id;
 
-  if (!newTitle) {
-    return ctx.reply("Kirim yang benar\nContoh: /changetitle Bentuk Cinta");
-  }
   if (message.reply_to_message && "audio" in message.reply_to_message) {
-    const replyMessage = await ctx.reply("Nice");
     const audio = message.reply_to_message.audio;
-    const thumbFileId = audio.thumb?.file_id;
-    const thumbUrl = thumbFileId && (await ctx.telegram.getFileLink(thumbFileId)).href;
 
-    modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
-      performer: audio.performer,
-      title: newTitle,
-      thumb: thumbUrl ? { url: thumbUrl } : undefined,
-      duration: audio.duration,
-    });
+    taskManager[userId] = {
+      name: "changetitle",
+      audio,
+    };
+    return ctx.reply("Oke sekarang kirim judul lagu yang baru");
   } else {
     return ctx.reply("Reply ke lagunya cuy");
   }
@@ -117,24 +109,16 @@ app.command("changepicture", async (ctx) => {
 });
 app.command("changeartist", async (ctx) => {
   const message = deunionize(ctx.message);
-  const newArtistName = getPayload(message.text);
   const userId = message.from.id;
 
-  if (!newArtistName) {
-    return ctx.reply("Kirim yang benar\nContoh: /changeartist Will Hyde");
-  }
   if (message.reply_to_message && "audio" in message.reply_to_message) {
-    const replyMessage = await ctx.reply("Nice");
     const audio = message.reply_to_message.audio;
-    const thumbFileId = audio.thumb?.file_id;
-    const thumbUrl = thumbFileId && (await ctx.telegram.getFileLink(thumbFileId)).href;
 
-    modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
-      performer: newArtistName,
-      title: audio.title,
-      thumb: thumbUrl ? { url: thumbUrl } : undefined,
-      duration: audio.duration,
-    });
+    taskManager[userId] = {
+      name: "changeartist",
+      audio,
+    };
+    return ctx.reply("Oke sekarang kirim nama artist yang baru");
   } else {
     return ctx.reply("Reply ke lagu yang mau diganti");
   }
@@ -193,6 +177,40 @@ app.on("message", async (ctx) => {
         delete taskManager[userId];
       } else {
         return ctx.reply("Kirim foto atau ketik /leave untuk membatalkan");
+      }
+    } else if (userTask.name === "changetitle") {
+      if (message.text) {
+        const replyMessage = await ctx.reply("Nice");
+        const audio = userTask.audio;
+        const newTitle = message.text;
+        const thumbFileId = audio.thumb?.file_id;
+        const thumbUrl = thumbFileId && (await ctx.telegram.getFileLink(thumbFileId)).href;
+
+        modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
+          performer: audio.performer,
+          title: newTitle,
+          thumb: thumbUrl ? { url: thumbUrl } : undefined,
+          duration: audio.duration,
+        });
+      } else {
+        return ctx.reply("Kirim judul yang baru atau ketik /leave untuk membatalkan");
+      }
+    } else if (userTask.name === "changeartist") {
+      if (message.text) {
+        const replyMessage = await ctx.reply("Nice");
+        const audio = userTask.audio;
+        const newArtistName = message.text;
+        const thumbFileId = audio.thumb?.file_id;
+        const thumbUrl = thumbFileId && (await ctx.telegram.getFileLink(thumbFileId)).href;
+
+        modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
+          performer: newArtistName,
+          title: audio.title,
+          thumb: thumbUrl ? { url: thumbUrl } : undefined,
+          duration: audio.duration,
+        });
+      } else {
+        return ctx.reply("Kirim nama artist yang baru atau ketik /leave untuk membatalkan");
       }
     } else {
       return ctx.replyWithSticker("CAACAgUAAxkBAAEMjghkDE3J8Kb1UJmp1lhhuhwXZ0OOOQAC6AQAAvB1mFYmM6DD0xMNtC8E");
