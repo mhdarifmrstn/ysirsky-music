@@ -1,5 +1,6 @@
 import { Telegram } from "telegraf";
 import { Message } from "telegraf/types";
+import formatBytes from "./formatBytes.js";
 import throttle from "./throttle.js";
 
 const sendProgress = throttle(
@@ -13,7 +14,13 @@ const sendProgress = throttle(
     songName?: string
   ) => {
     try {
-      const progressText = `Downloading ${artistName} - ${songName}\n` + `${downloaded}/${total}`;
+      const formatDownloaded = formatBytes(downloaded);
+      const formatTotal = formatBytes(total);
+      const progressText =
+        `Ysirsky Music\n\n` +
+        `Nama: ${songName || "-"}\n` +
+        `Artist: ${artistName || "-"}\n\n` +
+        `${formatDownloaded} / ${formatTotal}`;
       await telegram.editMessageText(message.chat.id, message.message_id, undefined, progressText);
     } catch {}
   }

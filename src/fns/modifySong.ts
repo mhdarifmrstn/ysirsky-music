@@ -20,11 +20,11 @@ async function modifySong(
 ) {
   const audioUrl = await telegram.getFileLink(audio.file_id);
   const audioFilePath = await downloadFile(userId + ".mp3", audioUrl.href, async (chunkLength, downloaded, total) => {
-    const percent = Number(((100.0 * downloaded) / total).toFixed(2));
-    process.stdout.write(`Downloading yeah ${percent}% ${formatBytes(downloaded)}/${formatBytes(total)}\r`);
     await sendProgress(telegram, replyMessage, chunkLength, downloaded, total, audio.performer, audio.title);
   });
+  await telegram.editMessageText(replyMessage.chat.id, replyMessage.message_id, undefined, "Oke tunggu sebentar");
   await telegram.sendAudio(chatId, Input.fromLocalFile(audioFilePath), extra);
+  await telegram.deleteMessage(replyMessage.chat.id, replyMessage.message_id);
 }
 
 export default modifySong;
