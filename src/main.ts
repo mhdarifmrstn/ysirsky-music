@@ -45,7 +45,7 @@ app.start(async (ctx) => {
 app.command(["r", "download"], async (ctx) => {
   try {
     const query = getPayload(ctx.message.text);
-    if (!query) return ctx.reply("Judul lagunya mana cuy");
+    if (!query) return ctx.reply("Mana judul lagunya cuy");
     const r = await ctx.reply("Nice");
     await editMessageText(r, `Mencari ${query}..`);
     const result = await spotifyds.searchTrack(query);
@@ -174,26 +174,31 @@ app.command("uptime", async (ctx) => {
 app.on("message", async (ctx) => {
   const message = deunionize(ctx.message);
   const userId = message.from.id;
-  if (!message.photo) return ctx.reply("Kirim foto atau ketik /leave untuk membatalkan");
-  const newThumbFileId = message.photo[0].file_id;
   const userTask = taskManager[userId];
 
   if (userTask) {
     if (userTask.name === "changepicture") {
-      const replyMessage = await ctx.reply("Nice");
-      const audio = userTask.audio;
-      const newThumbUrl = (await ctx.telegram.getFileLink(newThumbFileId)).href;
+      if (message.photo) {
+        const replyMessage = await ctx.reply("Nice");
+        const audio = userTask.audio;
+        const newThumbFileId = message.photo[0].file_id;
+        const newThumbUrl = (await ctx.telegram.getFileLink(newThumbFileId)).href;
 
-      modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
-        performer: audio.performer,
-        title: audio.title,
-        thumb: { url: newThumbUrl },
-        duration: audio.duration,
-      });
-      delete taskManager[userId];
+        modifySong(ctx.telegram, audio, replyMessage, ctx.chat.id, userId, {
+          performer: audio.performer,
+          title: audio.title,
+          thumb: { url: newThumbUrl },
+          duration: audio.duration,
+        });
+        delete taskManager[userId];
+      } else {
+        return ctx.reply("Kirim foto atau ketik /leave untuk membatalkan");
+      }
     } else {
-      return ctx.reply("Kirim foto atau ketik /leave untuk membatalkan");
+      return ctx.replyWithSticker("CAACAgUAAxkBAAEMjghkDE3J8Kb1UJmp1lhhuhwXZ0OOOQAC6AQAAvB1mFYmM6DD0xMNtC8E");
     }
+  } else {
+    return ctx.replyWithSticker("CAACAgUAAxkBAAEMjghkDE3J8Kb1UJmp1lhhuhwXZ0OOOQAC6AQAAvB1mFYmM6DD0xMNtC8E");
   }
 });
 if (env.DEVELOPMENT) {
