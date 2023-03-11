@@ -44,9 +44,9 @@ app.start(async (ctx) => {
 });
 app.command(["r", "download"], async (ctx) => {
   try {
-    const r = await ctx.reply("Nice");
     const query = getPayload(ctx.message.text);
     if (!query) return ctx.reply("Judul lagunya mana cuy");
+    const r = await ctx.reply("Nice");
     await editMessageText(r, `Mencari ${query}..`);
     const result = await spotifyds.searchTrack(query);
     const artist = result.artists.items.map((artist) => artist.profile.name);
