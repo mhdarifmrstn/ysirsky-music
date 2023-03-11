@@ -1,5 +1,5 @@
 import { rmSync } from "node:fs";
-import { Telegraf, Input, deunionize } from "telegraf";
+import { Telegraf, Input, deunionize, TelegramError } from "telegraf";
 import express from "express";
 import spotifyds from "spotifyds-core";
 import { Audio } from "telegraf/types";
@@ -31,8 +31,8 @@ const server = express();
 const port = env.PORT || 8080;
 
 app.telegram.setMyCommands([
-  { command: "r", description: "download song from title (shortcut)" },
-  { command: "download", description: "download song from title" },
+  { command: "r", description: "download song by title (shortcut)" },
+  { command: "download", description: "download song by title" },
   { command: "changetitle", description: "change song title" },
   { command: "changepicture", description: "change song picture" },
   { command: "changeartist", description: "change artist name" },
@@ -59,15 +59,23 @@ app.command(["r", "download"], async (ctx) => {
       sendProgress(ctx.telegram, r, chunkLength, downloaded, total, artist[0], result.name);
     });
     download.on("finish", async (filePath) => {
-      await editMessageText(r, "Sedang mengirim lagu, tunggu aja");
+      try {
+        await editMessageText(r, "Sedang mengirim lagu, tunggu aja");
 
-      await app.telegram.sendAudio(ctx.chat.id, Input.fromLocalFile(filePath), {
-        performer: result.artists.items[0].profile.name,
-        title: result.name,
-        thumb: { url: ytResult.thumbnailUrl! },
-        duration: ytResult.duration?.totalSeconds,
-      });
-      await app.telegram.deleteMessage(r.chat.id, r.message_id);
+        await app.telegram.sendAudio(ctx.chat.id, Input.fromLocalFile(filePath), {
+          performer: result.artists.items[0].profile.name,
+          title: result.name,
+          thumb: { url: ytResult.thumbnailUrl! },
+          duration: ytResult.duration?.totalSeconds,
+        });
+        await app.telegram.deleteMessage(r.chat.id, r.message_id);
+      } catch (err) {
+        console.log(err);
+
+        if (err instanceof TelegramError) {
+          return ctx.reply(err.message);
+        }
+      }
     });
     download.on("error", console.log);
   } catch (err) {
@@ -118,7 +126,7 @@ app.command("changeartist", async (ctx) => {
       name: "changeartist",
       audio,
     };
-    return ctx.reply("Oke sekarang kirim nama artist yang baru");
+    return ctx.reply("Sekarang kirim nama artist yang baru");
   } else {
     return ctx.reply("Reply ke lagu yang mau diganti");
   }
