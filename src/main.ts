@@ -197,8 +197,6 @@ app.on("message", async (ctx) => {
     } else {
       return ctx.replyWithSticker("CAACAgUAAxkBAAEMjghkDE3J8Kb1UJmp1lhhuhwXZ0OOOQAC6AQAAvB1mFYmM6DD0xMNtC8E");
     }
-  } else {
-    return ctx.replyWithSticker("CAACAgUAAxkBAAEMjghkDE3J8Kb1UJmp1lhhuhwXZ0OOOQAC6AQAAvB1mFYmM6DD0xMNtC8E");
   }
 });
 if (env.DEVELOPMENT) {
