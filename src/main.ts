@@ -110,7 +110,7 @@ app.command("changepicture", async (ctx) => {
       name: "changepicture",
       audio,
     };
-    return ctx.reply("Kirim foto kesini");
+    return ctx.reply("Oke sekarang kirim foto kesini");
   } else {
     return ctx.reply("Reply ke lagunya");
   }
@@ -171,9 +171,11 @@ app.command("uptime", async (ctx) => {
     return ctx.reply((err as any).message);
   }
 });
-app.on("photo", async (ctx) => {
-  const userId = ctx.message.from.id;
-  const newThumbFileId = ctx.message.photo[0].file_id;
+app.on("message", async (ctx) => {
+  const message = deunionize(ctx.message);
+  const userId = message.from.id;
+  if (!message.photo) return ctx.reply("Kirim foto atau ketik /leave untuk membatalkan");
+  const newThumbFileId = message.photo[0].file_id;
   const userTask = taskManager[userId];
 
   if (userTask) {
